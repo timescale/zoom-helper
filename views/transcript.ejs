@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoom Helper - Transcript</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: calc(100vh - 40px);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .home-icon {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #007bff;
+            text-decoration: none;
+            font-size: 20px;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .home-icon:hover {
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin: 0;
+            flex: 1;
+        }
+
+        .inner-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .transcript-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+            background: #fafafa;
+            min-height: 0;
+        }
+        .transcript-entry {
+            margin-bottom: 0px;
+            padding: 2px;
+            margin: 2px 0px;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .transcript-speaker {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .transcript-text {
+            color: #444;
+            line-height: 1.5;
+        }
+        .definition-word {
+            background-color: yellow;
+            cursor: help;
+        }
+
+        .answer-indicator {
+            color: #007acc;
+            cursor: help;
+            margin-left: 5px;
+        }
+
+        .sales-analysis {
+            background: white;
+            margin-top: 10px;
+            padding: 0px;
+            flex: 2;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .analysis-box {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            background: #f9f9f9;
+            overflow-y: auto;
+        }
+
+        .analysis-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .analysis-box ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .analysis-box li {
+            margin-bottom: 5px;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/" class="home-icon" title="Go to Home">🏠</a>
+            <h1>Zoom Helper - Meeting #<%= meeting.id %> - Transcript</h1>
+        </div>
+
+        <div class="inner-container">
+            <div id="transcript-container" class="transcript-container">
+                <% for (let entry of transcripts) { %>
+                    <div class="transcript-entry" id="transcript-entry-<%= entry.id %>">
+                        <span class="transcript-speaker"><%= entry.speaker %></span>:
+                        <span class="transcript-text"><%
+                            let processedText = entry.text;
+                            if (entry.definitions) {
+                                for (const def of entry.definitions) {
+                                    const regex = new RegExp(`\\b${def.word}\\b`, 'gi');
+                                    processedText = processedText.replace(regex, `<span class="definition-word" title="${def.definition}">$&</span>`);
+                                }
+                            }
+                        %><%- processedText %></span>
+                        <% if (entry.answer) { %>
+                            <span class="answer-indicator" title="<%= entry.answer %>">*</span>
+                        <% } %>
+                    </div>
+                <% } %>
+            </div>
+            <% if (meeting.enable_sales_analysis) { %>
+                <div class="sales-analysis">
+                    <div class="analysis-grid">
+                        <div class="analysis-box">
+                            <h3>Current State</h3>
+                            <ul id="current-state">
+                                <% for (const item of meeting.sales_analysis?.currentState || []) { %>
+                                    <li><%= item %></li>
+                                <% } %>
+                            </ul>
+                        </div>
+                        <div class="analysis-box">
+                            <h3>Business Outcomes</h3>
+                            <ul id="business-outcomes">
+                                <% for (const item of meeting.sales_analysis?.businessOutcomes || []) { %>
+                                    <li><%= item %></li>
+                                <% } %>
+                            </ul>
+                        </div>
+                        <div class="analysis-box">
+                            <h3>Solution Requirements</h3>
+                            <ul id="solution-requirements">
+                                <% for (const item of meeting.sales_analysis?.solutionRequirements || []) { %>
+                                    <li><%= item %></li>
+                                <% } %>
+                            </ul>
+                        </div>
+                        <div class="analysis-box">
+                            <h3>Metrics</h3>
+                            <ul id="metrics">
+                                <% for (const item of meeting.sales_analysis?.metrics || []) { %>
+                                    <li><%= item %></li>
+                                <% } %>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        socket.emit('joinRoom', 'transcript');
+
+        const speakerColors = {};
+        const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14', '#20c997', '#e83e8c'];
+
+        function getSpeakerColor(speaker) {
+            if (speakerColors[speaker]) {
+                return speakerColors[speaker];
+            }
+            const nextIdx = Object.keys(speakerColors).length % colors.length
+            speakerColors[speaker] = colors[nextIdx];
+            return speakerColors[speaker];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const transcriptContainer = document.getElementById('transcript-container');
+            transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+
+            document.querySelectorAll('.transcript-entry').forEach((entry) => {
+                const speaker = entry.querySelector('.transcript-speaker').textContent.replace(':', '');
+                entry.style.borderLeftColor = getSpeakerColor(speaker);
+            });
+
+            document.querySelectorAll('.answer-indicator').forEach((indicator) => {
+                tippy(indicator, {
+                    content: indicator.getAttribute('title'),
+                    placement: 'top',
+                    maxWidth: 300,
+                    theme: 'dark'
+                });
+            });
+
+            document.querySelectorAll('.definition-word').forEach((word) => {
+                tippy(word, {
+                    content: word.getAttribute('title'),
+                    placement: 'top',
+                    maxWidth: 300,
+                    theme: 'dark'
+                });
+            });
+        });
+
+        const statusIndicator = document.getElementById('status-indicator');
+        const transcriptContainer = document.getElementById('transcript-container');
+
+        socket.emit('joinRoom', 'meeting_<%= meeting.id %>');
+
+        socket.on('newTranscript', (transcript) => {
+            console.log('New transcript entry:', transcript);
+
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'transcript-entry';
+            entryDiv.id = `transcript-entry-${transcript.id}`;
+
+            entryDiv.innerHTML = `
+                <span class="transcript-speaker">${transcript.speaker}</span>:
+                <span class="transcript-text">${transcript.text}</span>
+            `;
+
+            entryDiv.style.borderLeftColor = getSpeakerColor(transcript.speaker);
+
+            const wasAtBottom = transcriptContainer.scrollTop + transcriptContainer.clientHeight >= transcriptContainer.scrollHeight - 5;
+
+            transcriptContainer.appendChild(entryDiv);
+
+            if (wasAtBottom) {
+                transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+            }
+        });
+
+        socket.on('transcriptUpdated', (update) => {
+            console.log('Transcript updated:', update);
+            const entryDiv = document.getElementById(`transcript-entry-${update.id}`);
+            if (!entryDiv) {
+                return;
+            }
+
+            if (update.definitions) {
+                for (const def of update.definitions) {
+                    const regex = new RegExp(`\\b${def.word}\\b`, 'gi');
+                    entryDiv.querySelector('.transcript-text').innerHTML = entryDiv.querySelector('.transcript-text').innerHTML.replace(regex, `<span class="definition-word" title="${def.definition}">$&</span>`);
+                }
+
+                const definitionWords = entryDiv.querySelectorAll('.definition-word');
+                definitionWords.forEach(word => {
+                    tippy(word, {
+                        content: word.getAttribute('title'),
+                        placement: 'top',
+                        maxWidth: 300,
+                        theme: 'dark'
+                    });
+                });
+            }
+
+            if (update.answer) {
+                const answerIndicator = document.createElement('span');
+                answerIndicator.className = 'answer-indicator';
+                answerIndicator.textContent = '*';
+                answerIndicator.title = update.answer;
+                entryDiv.appendChild(answerIndicator);
+                tippy(answerIndicator, {
+                    content: update.answer,
+                    placement: 'top',
+                    maxWidth: 300,
+                    theme: 'dark'
+                });
+            }
+        });
+
+        socket.on('salesAnalysis', (analysis) => {
+            console.log('Sales analysis update:', analysis);
+            const currentStateList = document.getElementById('current-state');
+            currentStateList.innerHTML = '';
+            if (analysis.currentState) {
+                analysis.currentState.forEach((item) => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    currentStateList.appendChild(li);
+                });
+            }
+
+            const businessOutcomesList = document.getElementById('business-outcomes');
+            businessOutcomesList.innerHTML = '';
+            if (analysis.businessOutcomes) {
+                analysis.businessOutcomes.forEach((item) => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    businessOutcomesList.appendChild(li);
+                });
+            }
+
+            const solutionRequirementsList = document.getElementById('solution-requirements');
+            solutionRequirementsList.innerHTML = '';
+            if (analysis.solutionRequirements) {
+                analysis.solutionRequirements.forEach((item) => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    solutionRequirementsList.appendChild(li);
+                });
+            }
+
+            const metricsList = document.getElementById('metrics');
+            metricsList.innerHTML = '';
+            if (analysis.metrics) {
+                analysis.metrics.forEach((item) => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    metricsList.appendChild(li);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
